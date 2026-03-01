@@ -15,17 +15,17 @@ const Support = () => {
   }, []);
 
   return (
-    <div className="min-h-screen pt-16">
+    <div className="min-h-screen">
       <iframe
         ref={iframeRef}
         data-tally-src="https://tally.so/r/9qdRyQ"
         width="100%"
-        style={{ position: "fixed", top: 64, left: 0, right: 0, bottom: 0, border: 0 }}
-        height="calc(100vh - 64px)"
+        style={{ position: "absolute", top: 0, right: 0, bottom: 0, left: 0, border: 0 }}
+        height="100%"
         frameBorder="0"
         marginHeight={0}
         marginWidth={0}
-        title="MountinalCorp Support."
+        title="Mountinal-Corp Support."
       />
     </div>
   );
