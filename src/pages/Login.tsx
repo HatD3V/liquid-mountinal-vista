@@ -1,15 +1,36 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
+import { toast } from "@/components/ui/use-toast";
 import { motion } from "framer-motion";
 
 const Login = () => {
-  const { login } = useAuth();
+  const { login, resetPassword } = useAuth();
   const navigate = useNavigate();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+
+
+
+  const handleForgotPassword = async () => {
+    if (!email) {
+      setError("Please enter your email first to reset your password.");
+      return;
+    }
+
+    try {
+      await resetPassword(email);
+      setError("");
+      toast({
+        title: "Password reset email sent",
+        description: "Check your inbox for a secure reset link.",
+      });
+    } catch (err: any) {
+      setError(err?.message || "Unable to send reset email");
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -62,6 +83,13 @@ const Login = () => {
               className="w-full glass-panel !rounded-xl px-4 py-3 text-sm text-foreground bg-transparent outline-none focus:ring-2 focus:ring-primary/50 transition-all"
               placeholder="••••••••"
             />
+            <button
+              type="button"
+              onClick={handleForgotPassword}
+              className="mt-2 text-xs text-primary hover:underline"
+            >
+              Forgot password?
+            </button>
           </div>
           <button
             type="submit"
