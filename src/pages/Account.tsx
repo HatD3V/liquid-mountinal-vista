@@ -50,7 +50,7 @@ const Account = () => {
 
   const copyHexId = () => {
     if (profile?.hexId) {
-      navigator.clipboard.writeText(profile.hexId);
+      navigator.clipboard.writeText(String(profile.hexId));
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     }

@@ -15,7 +15,7 @@ import { auth, db } from "@/lib/firebase";
 interface UserProfile {
   email: string;
   displayName: string;
-  hexId: string;
+  hexId: number;
   createdAt: Date;
 }
 
@@ -49,13 +49,8 @@ export const useAuth = () => {
   return ctx;
 };
 
-function generateHexId(): string {
-  const chars = "0123456789ABCDEF";
-  let result = "";
-  for (let i = 0; i < 7; i++) {
-    result += chars[Math.floor(Math.random() * 16)];
-  }
-  return result;
+function generateHexId(): number {
+  return Math.floor(100000 + Math.random() * 900000);
 }
 
 function getDeviceInfo(): string {
@@ -73,19 +68,48 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [loading, setLoading] = useState(true);
   const [sessions, setSessions] = useState<SessionEntry[]>([]);
 
+  const saveHexIdRecord = async (email: string, hexId: number) => {
+    await setDoc(doc(db, "HEX ID", email), { userhex: hexId }, { merge: true });
+  };
+
   const fetchProfile = async (u: User) => {
     const ref = doc(db, "users", u.uid);
     const snap = await getDoc(ref);
+
     if (snap.exists()) {
-      setProfile(snap.data() as UserProfile);
+      const existingProfile = snap.data() as Partial<UserProfile>;
+      let hexId = existingProfile.hexId;
+
+      if (typeof hexId !== "number") {
+        hexId = generateHexId();
+        await setDoc(ref, { hexId }, { merge: true });
+      }
+
+      if (u.email) {
+        await saveHexIdRecord(u.email, hexId);
+      }
+
+      setProfile({
+        email: existingProfile.email || u.email || "",
+        displayName: existingProfile.displayName || u.displayName || "",
+        hexId,
+        createdAt: existingProfile.createdAt || new Date(),
+      });
     } else {
+      const hexId = generateHexId();
       const newProfile: UserProfile = {
         email: u.email || "",
         displayName: u.displayName || "",
-        hexId: generateHexId(),
+        hexId,
         createdAt: new Date(),
       };
+
       await setDoc(ref, newProfile);
+
+      if (u.email) {
+        await saveHexIdRecord(u.email, hexId);
+      }
+
       setProfile(newProfile);
     }
   };
