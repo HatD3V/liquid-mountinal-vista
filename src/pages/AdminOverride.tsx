@@ -2,7 +2,8 @@ import { FormEvent, useEffect, useMemo, useState } from "react";
 import { doc, getDoc } from "firebase/firestore";
 import { auth, db } from "@/lib/firebase";
 
-const adminActionUrl = import.meta.env.VITE_ADMIN_FORCE_UPDATE_URL as string | undefined;
+const defaultAdminActionPath = "/api/admin/force-update";
+const adminActionUrl = (import.meta.env.VITE_ADMIN_FORCE_UPDATE_URL as string | undefined) || defaultAdminActionPath;
 
 const AdminOverride = () => {
   const [checkingAccess, setCheckingAccess] = useState(true);
@@ -58,11 +59,6 @@ const AdminOverride = () => {
 
     if (!authorized) {
       setError("Admin access required.");
-      return;
-    }
-
-    if (!adminActionUrl) {
-      setError("Admin action URL is not configured. Set VITE_ADMIN_FORCE_UPDATE_URL.");
       return;
     }
 
@@ -145,7 +141,7 @@ const AdminOverride = () => {
         <div className="glass-panel-strong p-8">
           <h1 className="font-display text-2xl font-bold text-foreground mb-2">Admin Override</h1>
           <p className="text-sm text-muted-foreground mb-6">
-            Hidden admin tool. Requires <code>users/{"{uid}"}.admin = true</code> and a configured secure backend endpoint.
+            Hidden admin tool. Requires <code>users/{"{uid}"}.admin = true</code>. Uses <code>{adminActionUrl}</code> as the admin action endpoint (override with <code>VITE_ADMIN_FORCE_UPDATE_URL</code>).
           </p>
 
           {error && <div className="mb-4 p-3 rounded-lg bg-destructive/10 text-destructive text-sm">{error}</div>}
