@@ -8,6 +8,8 @@ import {
   updateProfile,
   updatePassword,
   sendPasswordResetEmail,
+  sendEmailVerification,
+  verifyBeforeUpdateEmail,
 } from "firebase/auth";
 import { doc, getDoc, setDoc, collection, addDoc, getDocs, serverTimestamp } from "firebase/firestore";
 import { auth, db } from "@/lib/firebase";
@@ -37,6 +39,8 @@ interface AuthContextType {
   logout: () => Promise<void>;
   updateDisplayName: (name: string) => Promise<void>;
   changePassword: (newPassword: string) => Promise<void>;
+  changeEmail: (newEmail: string) => Promise<void>;
+  sendVerification: () => Promise<void>;
   resetPassword: (email: string) => Promise<void>;
   sessions: SessionEntry[];
   refreshSessions: () => Promise<void>;
@@ -209,6 +213,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const register = async (email: string, password: string) => {
     const cred = await createUserWithEmailAndPassword(auth, email, password);
+    await sendEmailVerification(cred.user);
     await logSession(cred.user.uid);
   };
 
@@ -228,13 +233,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     await updatePassword(user, newPassword);
   };
 
+  const changeEmail = async (newEmail: string) => {
+    if (!user) return;
+    await verifyBeforeUpdateEmail(user, newEmail);
+  };
+
+  const sendVerification = async () => {
+    if (!user) return;
+    await sendEmailVerification(user);
+  };
+
   const resetPassword = async (email: string) => {
     await sendPasswordResetEmail(auth, email);
   };
 
   return (
     <AuthContext.Provider
-      value={{ user, profile, loading, login, register, logout, updateDisplayName, changePassword, resetPassword, sessions, refreshSessions }}
+      value={{ user, profile, loading, login, register, logout, updateDisplayName, changePassword, changeEmail, sendVerification, resetPassword, sessions, refreshSessions }}
     >
       {children}
     </AuthContext.Provider>
