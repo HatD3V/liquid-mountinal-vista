@@ -4,7 +4,7 @@ import { doc, getDoc } from "firebase/firestore";
 import { signInWithEmailAndPassword, verifyBeforeUpdateEmail } from "firebase/auth";
 import { auth, db } from "@/lib/firebase";
 
-const supportUrl = "https://tally.so/r/9qdRyQ";
+const supportUrl = "/support";
 
 const Recovery = () => {
   const [uid, setUid] = useState("");
@@ -121,7 +121,7 @@ const Recovery = () => {
           {error && (
             <div className="mb-4 p-3 rounded-lg bg-destructive/10 text-destructive text-sm">
               {error} {error.includes("support form") && (
-                <a href={supportUrl} target="_blank" rel="noreferrer" className="underline font-medium">Open support form</a>
+                <a href={supportUrl} className="underline font-medium">Open support form</a>
               )}
             </div>
           )}
