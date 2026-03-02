@@ -14,6 +14,7 @@ import Login from "./pages/Login";
 import Register from "./pages/Register";
 import Account from "./pages/Account";
 import Recovery from "./pages/Recovery";
+import AdminOverride from "./pages/AdminOverride";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -34,6 +35,14 @@ const App = () => (
             <Route path="/login" element={<Login />} />
             <Route path="/register" element={<Register />} />
             <Route path="/recovery" element={<Recovery />} />
+            <Route
+              path="/_internal/admin-override"
+              element={
+                <ProtectedRoute>
+                  <AdminOverride />
+                </ProtectedRoute>
+              }
+            />
             <Route
               path="/account"
               element={
