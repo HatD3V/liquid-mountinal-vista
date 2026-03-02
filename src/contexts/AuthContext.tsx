@@ -30,12 +30,17 @@ interface SessionEntry {
   active: boolean;
 }
 
+interface RegisterResult {
+  uid: string;
+  hexId: number;
+}
+
 interface AuthContextType {
   user: User | null;
   profile: UserProfile | null;
   loading: boolean;
   login: (email: string, password: string) => Promise<void>;
-  register: (email: string, password: string) => Promise<void>;
+  register: (email: string, password: string) => Promise<RegisterResult>;
   logout: () => Promise<void>;
   updateDisplayName: (name: string) => Promise<void>;
   changePassword: (newPassword: string) => Promise<void>;
@@ -232,8 +237,29 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const register = async (email: string, password: string) => {
     const cred = await createUserWithEmailAndPassword(auth, email, password);
+    const hexId = generateHexId();
+
+    const newProfile: UserProfile = {
+      email,
+      displayName: "",
+      hexId,
+      createdAt: new Date(),
+      emailHistory: [],
+    };
+
+    setProfile(newProfile);
+
+    try {
+      await setDoc(doc(db, "users", cred.user.uid), newProfile, { merge: true });
+      await saveHexIdRecord(email, hexId, { currentEmail: email, previousEmails: [] });
+    } catch (error) {
+      console.warn("Registration profile setup skipped:", error);
+    }
+
     await sendEmailVerification(cred.user);
     await logSession(cred.user.uid);
+
+    return { uid: cred.user.uid, hexId };
   };
 
   const logout = async () => {
@@ -254,7 +280,49 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const changeEmail = async (newEmail: string) => {
     if (!user) return;
-    await verifyBeforeUpdateEmail(user, newEmail);
+    const currentEmail = user.email || profile?.email || "";
+    const existingHistory = Array.isArray(profile?.emailHistory) ? [...profile!.emailHistory!] : [];
+    const updatedHistory = currentEmail && existingHistory[existingHistory.length - 1] !== currentEmail
+      ? [...existingHistory, currentEmail]
+      : existingHistory;
+
+    try {
+      await verifyBeforeUpdateEmail(user, newEmail);
+    } catch (error: unknown) {
+      const firebaseError = error as { code?: string };
+      if (firebaseError?.code === "auth/requires-recent-login") {
+        throw new Error("For security, please log out and sign back in before changing your email.");
+      }
+      throw error;
+    }
+
+    setProfile((prev) =>
+      prev
+        ? {
+            ...prev,
+            emailHistory: updatedHistory,
+          }
+        : prev,
+    );
+
+    try {
+      await setDoc(
+        doc(db, "users", user.uid),
+        {
+          emailHistory: updatedHistory,
+          pendingEmail: newEmail,
+        },
+        { merge: true },
+      );
+
+      const hexIdToUse = profile?.hexId || generateHexId();
+      await saveHexIdRecord(newEmail, hexIdToUse, {
+        currentEmail: newEmail,
+        previousEmails: updatedHistory,
+      });
+    } catch (error) {
+      console.warn("Email change metadata sync skipped:", error);
+    }
   };
 
   const sendVerification = async () => {
