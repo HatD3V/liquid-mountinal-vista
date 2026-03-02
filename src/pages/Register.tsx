@@ -1,8 +1,8 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { motion } from "framer-motion";
-import { Check, Copy } from "lucide-react";
+import RegisterRecoveryModal from "@/components/RegisterRecoveryModal";
 
 const Register = () => {
   const { register } = useAuth();
@@ -33,11 +33,6 @@ const Register = () => {
 
     return () => window.clearInterval(timer);
   }, [showAccountInfoModal, closeCooldown]);
-
-  const closeButtonLabel = useMemo(() => {
-    if (closeCooldown > 0) return `Close (${closeCooldown}s)`;
-    return "Close";
-  }, [closeCooldown]);
 
   const copyValue = async (value: string, field: "uid" | "hex") => {
     await navigator.clipboard.writeText(value);
@@ -137,63 +132,18 @@ const Register = () => {
         </p>
       </motion.div>
 
-      {showAccountInfoModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-6">
-          <div className="w-full max-w-xl glass-panel-strong p-6 space-y-5">
-            <h2 className="font-display text-2xl font-bold text-foreground">Important: Save your account recovery details</h2>
-            <p className="text-sm text-muted-foreground">
-              Write these down in a secure file/password manager. You may need them if your account is compromised.
-            </p>
-
-            <div className="space-y-2">
-              <label className="block text-xs font-medium text-muted-foreground">Mountinal-HEX ID</label>
-              <div className="flex items-center gap-2">
-                <input
-                  value={newHexId}
-                  readOnly
-                  className="flex-1 glass-panel !rounded-xl px-4 py-2.5 text-sm text-foreground bg-transparent outline-none"
-                />
-                <button
-                  onClick={() => copyValue(newHexId, "hex")}
-                  className="glass-button-primary !py-2.5 text-sm inline-flex items-center gap-2"
-                >
-                  {copiedField === "hex" ? <Check size={14} /> : <Copy size={14} />} Copy
-                </button>
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <label className="block text-xs font-medium text-muted-foreground">User UID</label>
-              <div className="flex items-center gap-2">
-                <input
-                  value={newUid}
-                  readOnly
-                  className="flex-1 glass-panel !rounded-xl px-4 py-2.5 text-sm text-foreground bg-transparent outline-none"
-                />
-                <button
-                  onClick={() => copyValue(newUid, "uid")}
-                  className="glass-button-primary !py-2.5 text-sm inline-flex items-center gap-2"
-                >
-                  {copiedField === "uid" ? <Check size={14} /> : <Copy size={14} />} Copy
-                </button>
-              </div>
-            </div>
-
-            <div className="pt-2 flex justify-end">
-              <button
-                disabled={closeCooldown > 0}
-                onClick={() => {
-                  setShowAccountInfoModal(false);
-                  navigate("/account");
-                }}
-                className="glass-button-primary !py-2.5 text-sm disabled:opacity-50"
-              >
-                {closeButtonLabel}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <RegisterRecoveryModal
+        open={showAccountInfoModal}
+        closeCooldown={closeCooldown}
+        hexId={newHexId}
+        uid={newUid}
+        copiedField={copiedField}
+        onCopy={copyValue}
+        onClose={() => {
+          setShowAccountInfoModal(false);
+          navigate("/account");
+        }}
+      />
     </div>
   );
 };
