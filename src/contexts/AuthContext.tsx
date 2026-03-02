@@ -97,69 +97,85 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const fetchProfile = async (u: User) => {
     const ref = doc(db, "users", u.uid);
-    const snap = await getDoc(ref);
 
-    if (snap.exists()) {
-      const existingProfile = snap.data() as Partial<UserProfile>;
-      let hexId = existingProfile.hexId;
-      const existingEmail = existingProfile.email || "";
-      const currentEmail = u.email || existingEmail;
-      const emailHistory = Array.isArray(existingProfile.emailHistory)
-        ? [...existingProfile.emailHistory]
-        : [];
+    try {
+      const snap = await getDoc(ref);
 
-      if (existingEmail && currentEmail && existingEmail !== currentEmail && emailHistory[emailHistory.length - 1] !== existingEmail) {
-        emailHistory.push(existingEmail);
-      }
+      if (snap.exists()) {
+        const existingProfile = snap.data() as Partial<UserProfile>;
+        let hexId = existingProfile.hexId;
+        const existingEmail = existingProfile.email || "";
+        const currentEmail = u.email || existingEmail;
+        const emailHistory = Array.isArray(existingProfile.emailHistory)
+          ? [...existingProfile.emailHistory]
+          : [];
 
-      if (typeof hexId !== "number") {
-        hexId = generateHexId();
-        await setDoc(ref, { hexId }, { merge: true });
-      }
+        if (existingEmail && currentEmail && existingEmail !== currentEmail && emailHistory[emailHistory.length - 1] !== existingEmail) {
+          emailHistory.push(existingEmail);
+        }
 
-      if (currentEmail) {
-        await saveHexIdRecord(currentEmail, hexId, {
-          currentEmail,
-          previousEmails: emailHistory,
-        });
-      }
+        if (typeof hexId !== "number") {
+          hexId = generateHexId();
+        }
 
-      await setDoc(
-        ref,
-        {
+        setProfile({
           email: currentEmail,
+          displayName: existingProfile.displayName || u.displayName || "",
+          hexId,
+          createdAt: existingProfile.createdAt || new Date(),
           emailHistory,
-        },
-        { merge: true },
-      );
+        });
 
-      setProfile({
-        email: currentEmail,
-        displayName: existingProfile.displayName || u.displayName || "",
-        hexId,
-        createdAt: existingProfile.createdAt || new Date(),
-        emailHistory,
-      });
-    } else {
-      const hexId = generateHexId();
-      const newProfile: UserProfile = {
-        email: u.email || "",
-        displayName: u.displayName || "",
-        hexId,
-        createdAt: new Date(),
-        emailHistory: [],
-      };
+        try {
+          if (typeof existingProfile.hexId !== "number") {
+            await setDoc(ref, { hexId }, { merge: true });
+          }
 
-      await setDoc(ref, newProfile);
+          if (currentEmail) {
+            await saveHexIdRecord(currentEmail, hexId, {
+              currentEmail,
+              previousEmails: emailHistory,
+            });
+          }
+
+          await setDoc(
+            ref,
+            {
+              email: currentEmail,
+              emailHistory,
+            },
+            { merge: true },
+          );
+        } catch (error) {
+          console.warn("Profile metadata sync skipped:", error);
+        }
+        return;
+      }
+    } catch (error) {
+      console.warn("Profile read failed, using auth fallback:", error);
+    }
+
+    const newProfile: UserProfile = {
+      email: u.email || "",
+      displayName: u.displayName || "",
+      hexId: profile?.hexId || generateHexId(),
+      createdAt: new Date(),
+      emailHistory: [],
+    };
+
+    setProfile(newProfile);
+
+    try {
+      await setDoc(ref, newProfile, { merge: true });
 
       if (u.email) {
-        await saveHexIdRecord(u.email, hexId, {
+        await saveHexIdRecord(u.email, newProfile.hexId, {
           currentEmail: u.email,
           previousEmails: [],
         });
       }
-
-      setProfile(newProfile);
+    } catch (error) {
+      console.warn("Initial profile write skipped:", error);
     }
   };
 
@@ -195,13 +211,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, async (u) => {
       setUser(u);
-      if (u) {
-        await fetchProfile(u);
-      } else {
-        setProfile(null);
-        setSessions([]);
+      try {
+        if (u) {
+          await fetchProfile(u);
+        } else {
+          setProfile(null);
+          setSessions([]);
+        }
+      } finally {
+        setLoading(false);
       }
-      setLoading(false);
     });
     return unsub;
   }, []);
