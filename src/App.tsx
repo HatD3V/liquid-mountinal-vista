@@ -13,6 +13,7 @@ import Support from "./pages/Support";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
 import Account from "./pages/Account";
+import Recovery from "./pages/Recovery";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -32,6 +33,7 @@ const App = () => (
             <Route path="/support" element={<Support />} />
             <Route path="/login" element={<Login />} />
             <Route path="/register" element={<Register />} />
+            <Route path="/recovery" element={<Recovery />} />
             <Route
               path="/account"
               element={

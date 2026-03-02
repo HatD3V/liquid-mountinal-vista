@@ -3,13 +3,14 @@ import { useAuth } from "@/contexts/AuthContext";
 import { motion } from "framer-motion";
 import GlassCard from "@/components/GlassCard";
 import Footer from "@/components/Footer";
-import { User, Key, Monitor, LogOut, Copy, Check } from "lucide-react";
+import { User, Key, Monitor, LogOut, Copy, Check, Mail } from "lucide-react";
 import { toast } from "sonner";
 
 const Account = () => {
-  const { user, profile, updateDisplayName, changePassword, sessions, refreshSessions, logout } = useAuth();
+  const { user, profile, updateDisplayName, changePassword, changeEmail, sendVerification, sessions, refreshSessions, logout } = useAuth();
   const [displayName, setDisplayName] = useState(profile?.displayName || "");
   const [newPassword, setNewPassword] = useState("");
+  const [newEmail, setNewEmail] = useState("");
   const [saving, setSaving] = useState(false);
   const [copied, setCopied] = useState(false);
 
@@ -44,6 +45,41 @@ const Account = () => {
       toast.success("Password changed successfully");
     } catch (err: any) {
       toast.error(err?.message || "Failed to change password. You may need to re-login first.");
+    }
+    setSaving(false);
+  };
+
+  const handleChangeEmail = async () => {
+    const normalizedEmail = newEmail.trim().toLowerCase();
+
+    if (!normalizedEmail) {
+      toast.error("Please enter a new email address");
+      return;
+    }
+
+    if (normalizedEmail === user?.email?.toLowerCase()) {
+      toast.error("This is already your current email");
+      return;
+    }
+
+    setSaving(true);
+    try {
+      await changeEmail(normalizedEmail);
+      setNewEmail("");
+      toast.success("Verification sent to your new email. Confirm it to complete the change.");
+    } catch (err: any) {
+      toast.error(err?.message || "Failed to start email change. You may need to re-login first.");
+    }
+    setSaving(false);
+  };
+
+  const handleResendVerification = async () => {
+    setSaving(true);
+    try {
+      await sendVerification();
+      toast.success("Verification email sent");
+    } catch (err: any) {
+      toast.error(err?.message || "Failed to send verification email");
     }
     setSaving(false);
   };
@@ -89,6 +125,49 @@ const Account = () => {
                 <code className="font-mono text-lg text-primary tracking-wider">{profile?.hexId || "..."}</code>
                 <button onClick={copyHexId} className="text-muted-foreground hover:text-foreground transition-colors">
                   {copied ? <Check size={16} /> : <Copy size={16} />}
+                </button>
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-muted-foreground mb-1">Email Verification</label>
+              <div className="flex flex-wrap items-center gap-3">
+                <span
+                  className={`text-xs font-semibold px-2.5 py-0.5 rounded-full ${
+                    user?.emailVerified ? "bg-emerald-500/15 text-emerald-600" : "bg-amber-500/15 text-amber-600"
+                  }`}
+                >
+                  {user?.emailVerified ? "Verified" : "Not Verified"}
+                </span>
+                {!user?.emailVerified && (
+                  <button
+                    onClick={handleResendVerification}
+                    disabled={saving}
+                    className="text-sm text-primary hover:underline disabled:opacity-50"
+                  >
+                    Resend verification email
+                  </button>
+                )}
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-muted-foreground mb-1">Change Email</label>
+              <div className="flex gap-3">
+                <input
+                  type="email"
+                  value={newEmail}
+                  onChange={(e) => setNewEmail(e.target.value)}
+                  className="flex-1 glass-panel !rounded-xl px-4 py-2.5 text-sm text-foreground bg-transparent outline-none focus:ring-2 focus:ring-primary/50 transition-all"
+                  placeholder="new-email@example.com"
+                />
+                <button
+                  onClick={handleChangeEmail}
+                  disabled={saving}
+                  className="glass-button-primary text-sm !py-2.5 inline-flex items-center gap-2"
+                >
+                  <Mail size={14} />
+                  Change Email
                 </button>
               </div>
             </div>

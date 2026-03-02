@@ -1,7 +1,8 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { motion } from "framer-motion";
+import RegisterRecoveryModal from "@/components/RegisterRecoveryModal";
 
 const Register = () => {
   const { register } = useAuth();
@@ -11,6 +12,33 @@ const Register = () => {
   const [confirm, setConfirm] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+
+  const [showAccountInfoModal, setShowAccountInfoModal] = useState(false);
+  const [closeCooldown, setCloseCooldown] = useState(10);
+  const [newUid, setNewUid] = useState("");
+  const [newHexId, setNewHexId] = useState("");
+  const [copiedField, setCopiedField] = useState<"uid" | "hex" | "">("");
+
+  useEffect(() => {
+    if (!showAccountInfoModal || closeCooldown <= 0) return;
+    const timer = window.setInterval(() => {
+      setCloseCooldown((seconds) => {
+        if (seconds <= 1) {
+          window.clearInterval(timer);
+          return 0;
+        }
+        return seconds - 1;
+      });
+    }, 1000);
+
+    return () => window.clearInterval(timer);
+  }, [showAccountInfoModal, closeCooldown]);
+
+  const copyValue = async (value: string, field: "uid" | "hex") => {
+    await navigator.clipboard.writeText(value);
+    setCopiedField(field);
+    window.setTimeout(() => setCopiedField(""), 1500);
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -25,10 +53,14 @@ const Register = () => {
     }
     setLoading(true);
     try {
-      await register(email, password);
-      navigate("/account");
-    } catch (err: any) {
-      setError(err?.message || "Registration failed");
+      const registration = await register(email.trim().toLowerCase(), password);
+      setNewUid(registration.uid);
+      setNewHexId(String(registration.hexId));
+      setCloseCooldown(10);
+      setShowAccountInfoModal(true);
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Registration failed";
+      setError(message);
     } finally {
       setLoading(false);
     }
@@ -99,6 +131,19 @@ const Register = () => {
           </Link>
         </p>
       </motion.div>
+
+      <RegisterRecoveryModal
+        open={showAccountInfoModal}
+        closeCooldown={closeCooldown}
+        hexId={newHexId}
+        uid={newUid}
+        copiedField={copiedField}
+        onCopy={copyValue}
+        onClose={() => {
+          setShowAccountInfoModal(false);
+          navigate("/account");
+        }}
+      />
     </div>
   );
 };
