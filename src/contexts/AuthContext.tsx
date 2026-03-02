@@ -17,6 +17,7 @@ interface UserProfile {
   displayName: string;
   hexId: number;
   createdAt: Date;
+  emailHistory?: string[];
 }
 
 interface SessionEntry {
@@ -68,8 +69,26 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [loading, setLoading] = useState(true);
   const [sessions, setSessions] = useState<SessionEntry[]>([]);
 
-  const saveHexIdRecord = async (email: string, hexId: number) => {
-    await setDoc(doc(db, "HEX ID", email), { userhex: hexId }, { merge: true });
+  const saveHexIdRecord = async (
+    email: string,
+    hexId: number,
+    options?: { currentEmail?: string; previousEmails?: string[] },
+  ) => {
+    const payload: Record<string, string | number> = {
+      userhex: hexId,
+      currentEmail: options?.currentEmail || email,
+    };
+
+    const previousEmails = options?.previousEmails?.filter(Boolean) || [];
+    if (previousEmails.length > 0) {
+      const latestPreviousEmail = previousEmails[previousEmails.length - 1];
+      payload.lastemail = latestPreviousEmail;
+      previousEmails.forEach((previousEmail, index) => {
+        payload[`lastemail${index + 1}`] = previousEmail;
+      });
+    }
+
+    await setDoc(doc(db, "HEX ID", email), payload, { merge: true });
   };
 
   const fetchProfile = async (u: User) => {
@@ -79,21 +98,43 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (snap.exists()) {
       const existingProfile = snap.data() as Partial<UserProfile>;
       let hexId = existingProfile.hexId;
+      const existingEmail = existingProfile.email || "";
+      const currentEmail = u.email || existingEmail;
+      const emailHistory = Array.isArray(existingProfile.emailHistory)
+        ? [...existingProfile.emailHistory]
+        : [];
+
+      if (existingEmail && currentEmail && existingEmail !== currentEmail && emailHistory[emailHistory.length - 1] !== existingEmail) {
+        emailHistory.push(existingEmail);
+      }
 
       if (typeof hexId !== "number") {
         hexId = generateHexId();
         await setDoc(ref, { hexId }, { merge: true });
       }
 
-      if (u.email) {
-        await saveHexIdRecord(u.email, hexId);
+      if (currentEmail) {
+        await saveHexIdRecord(currentEmail, hexId, {
+          currentEmail,
+          previousEmails: emailHistory,
+        });
       }
 
+      await setDoc(
+        ref,
+        {
+          email: currentEmail,
+          emailHistory,
+        },
+        { merge: true },
+      );
+
       setProfile({
-        email: existingProfile.email || u.email || "",
+        email: currentEmail,
         displayName: existingProfile.displayName || u.displayName || "",
         hexId,
         createdAt: existingProfile.createdAt || new Date(),
+        emailHistory,
       });
     } else {
       const hexId = generateHexId();
@@ -102,12 +143,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         displayName: u.displayName || "",
         hexId,
         createdAt: new Date(),
+        emailHistory: [],
       };
 
       await setDoc(ref, newProfile);
 
       if (u.email) {
-        await saveHexIdRecord(u.email, hexId);
+        await saveHexIdRecord(u.email, hexId, {
+          currentEmail: u.email,
+          previousEmails: [],
+        });
       }
 
       setProfile(newProfile);
