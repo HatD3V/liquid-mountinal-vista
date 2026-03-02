@@ -28,18 +28,27 @@ const Recovery = () => {
       const normalizedHex = hex.trim();
       const normalizedEmail = email.trim().toLowerCase();
 
-      const snap = await getDoc(doc(db, "user", normalizedUid));
+      const userDocCandidates = [
+        await getDoc(doc(db, "user", normalizedUid)),
+        await getDoc(doc(db, "users", normalizedUid)),
+      ];
+      const userDoc = userDocCandidates.find((candidate) => candidate.exists());
 
-      if (!snap.exists()) {
-        setError("No matching recovery record found. Please verify your details or contact support.");
-        setLoading(false);
+      const hexDoc = await getDoc(doc(db, "HEX ID", normalizedEmail));
+
+      if (!userDoc && !hexDoc.exists()) {
+        setError("No matching recovery record found. Please verify your details or use the support form.");
         return;
       }
 
-      const data = snap.data() as Record<string, unknown>;
-      const storedEmail = String((data.email || data.currentEmail || "") as string).toLowerCase();
-      const storedUid = String((data.uid || data.userUID || snap.id) as string);
-      const storedHex = String((data.userhex || data.hexId || data.hex || "") as string);
+      const userData = userDoc?.data() as Record<string, unknown> | undefined;
+      const hexData = (hexDoc.data() || {}) as Record<string, unknown>;
+
+      const storedEmail = String(
+        userData?.email || userData?.currentEmail || hexData.currentEmail || "",
+      ).toLowerCase();
+      const storedUid = String(userData?.uid || userData?.userUID || userDoc?.id || "");
+      const storedHex = String(userData?.userhex || userData?.hexId || userData?.hex || hexData.userhex || "");
 
       const emailMatch = storedEmail === normalizedEmail;
       const uidMatch = storedUid === normalizedUid;
@@ -51,10 +60,15 @@ const Recovery = () => {
       } else if (emailMatch && (!uidMatch || !hexMatch)) {
         setError("We found that email, but UID and/or HEX did not match. Please use the support form.");
       } else {
-        setError("Recovery details do not fully match. Please check your values or contact support.");
+        setError("Recovery details do not fully match. Please check your values or use the support form.");
       }
-    } catch {
-      setError("Recovery check failed. Please try again.");
+    } catch (err: unknown) {
+      const firebaseError = err as { code?: string };
+      if (firebaseError?.code === "permission-denied") {
+        setError("Recovery lookup is currently restricted. Please use the support form.");
+      } else {
+        setError("Recovery check failed. Please use the support form.");
+      }
     } finally {
       setLoading(false);
     }
